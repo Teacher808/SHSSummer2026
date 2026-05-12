@@ -342,6 +342,32 @@
             }
         };
 
+        window.handleSync = async () => {
+            if (!state.appUser) return;
+            
+            const icon = document.getElementById('syncIcon');
+            if (icon) icon.classList.add('fa-spin');
+
+            if (state.authRole === 'student' && state.studentUsername) {
+                try {
+                    const docRef = doc(db, 'learner_progress', state.studentUsername);
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        state.answers = data.answers || {};
+                    }
+                } catch (err) {
+                    console.error("Failed to sync:", err);
+                }
+            }
+            
+            // Re-render and stop spinning after a short delay for smooth UX
+            setTimeout(() => {
+                if (icon) icon.classList.remove('fa-spin');
+                renderApp();
+            }, 600);
+        };
+
         window.handleLogout = () => {
             if (state.teacherUnsubscribe) {
                 state.teacherUnsubscribe();
@@ -635,6 +661,9 @@
                         <p class="text-blue-200 text-sm mt-1">Student Account: <span class="font-semibold text-white">@${state.studentUsername}</span></p>
                     </div>
                     <div class="flex items-center gap-3 w-full sm:w-auto">
+                        <button onclick="window.handleSync()" class="p-2 text-blue-200 hover:text-white hover:bg-blue-600 rounded-lg transition-colors" title="Refresh / Sync Answers">
+                            <i id="syncIcon" class="fas fa-sync-alt text-lg"></i>
+                        </button>
                         <button onclick="window.handleSaveProgress()" ${state.saveStatus.status === 'saving' ? 'disabled' : ''} 
                             class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${saveBtnClass}">
                             ${saveIcon} ${saveText}
@@ -759,9 +788,14 @@
                         <h1 class="text-xl font-bold flex items-center gap-2">
                             <i class="fas fa-chalkboard-teacher"></i> Teacher Control Panel
                         </h1>
-                        <button onclick="window.handleLogout()" class="flex items-center gap-2 px-4 py-2 bg-indigo-700 hover:bg-indigo-600 rounded-lg transition-colors">
-                            <i class="fas fa-sign-out-alt"></i> Logout
-                        </button>
+                        <div class="flex items-center gap-3">
+                            <button onclick="window.handleSync()" class="flex items-center gap-2 px-4 py-2 bg-indigo-700 hover:bg-indigo-600 rounded-lg transition-colors" title="Force Refresh">
+                                <i id="syncIcon" class="fas fa-sync-alt"></i> <span class="hidden sm:inline">Refresh</span>
+                            </button>
+                            <button onclick="window.handleLogout()" class="flex items-center gap-2 px-4 py-2 bg-indigo-700 hover:bg-indigo-600 rounded-lg transition-colors">
+                                <i class="fas fa-sign-out-alt"></i> Logout
+                            </button>
+                        </div>
                     </div>
                 </header>
 
