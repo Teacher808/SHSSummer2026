@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Numeracy Remediation Portal</title>
+    
+    <!-- Tailwind CSS for Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Custom Styles for details/summary accordion */
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Smooth transitions for inputs */
+        input, textarea, label { transition: all 0.2s ease-in-out; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans pb-20 min-h-screen flex flex-col">
+
+    <!-- The root element where our app will be rendered -->
+    <div id="app" class="flex-1 flex flex-col"></div>
+
+    <!-- Firebase SDKs and Application Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ============================================================================
+        // FIREBASE INITIALIZATION & CONFIGURATION
+        // ============================================================================
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // ============================================================================
+        // COMPLETE WORKSHEET DATA
+        // ============================================================================
+        const GEN_INST_GUIDED = "Read each item carefully and follow the given hints or examples. Take time to understand what each number or situation represents. Use the guidance provided to help you think, analyze, and solve systematically. If you are unsure, try to visualize the situation using a number line or a simple model before answering.";
+        const GEN_INST_INDEP = "Answer each item independently without using hints. Think critically and apply the concepts you have learned from the Guided Practice. Show your reasoning when needed and check your answers carefully. Take your time and be confident in your solutions.";
+
+        const WORKSHEET_DATA = {
+            session4: {
+                title: "Session 4: Understanding Numbers: Integers and the Number Line",
+                practices: [
+                    {
+                        title: "Guided Practice", generalInstruction: GEN_INST_GUIDED,
+                        parts: [
+                            {
+                                id: 's4_g_p1', title: "Part 1: True or False", type: 'tf',
+                                instruction: "Read each item carefully and determine whether it is true or false. On the space provided before each item, write T if the statement is true, then F if the statement is false. Use the hints given on the box below to guide your thinking.",
+                                hints: ["Zero is greater than all negative integers but less than all positive integers.", "On the number line, from one point to the left, the value of integers decreases.", "On the number line, from one point to the right, the value of integers increases."],
+                                questions: ["1. Zero is neither positive nor negative.", "2. 5 is located on the left of 0.", "3. 3 is less than -1.", "4. From 0 to positive 4 represents an increase.", "5. Numbers to the right of 0 is negative.", "6. 1 is greater than -6.", "7. In the number line, from 0, the opposite of 6 is negative 6.", "8. The opposite of positive 9 from 0 is -9.", "9. -2 is equal to 2.", "10. From 0 to negative ten shows decrease.", "11. 7 to 11 represents increase.", "12. Zero has no opposite integer.", "13. 4 is greater than -6.", "14. From zero moving to the right means increasing.", "15. From 5 moving to the left means decreasing.", "16. From 0, -7 is farther than 5.", "17. 3 and -3 are opposite integers.", "18. Integers can be negative numbers.", "19. Zero is not an integer.", "20. All integers have negative counterparts."]
+                            },
+                            {
+                                id: 's4_g_p2', title: "Part 2: Identifying Your Position", type: 'text',
+                                instruction: "Imagine moving on a number line. Just think: 'Am I going right (positive) or left (negative)?'. Write your final position (point on the number line) on the space provided before each item number.",
+                                questions: ["1. Start at zero, move 5 units to the right, then move 2 units to the left.", "2. Start at zero, move 4 units to the left, then move 6 units to the right.", "3. Start at 2, then move 3 units to the left.", "4. Start at negative 1, then move 5 units to the right.", "5. Start at 4, then move 7 units to the left.", "6. Start at negative 3, then move 8 units to the right.", "7. Start at zero, move 6 units to the left, then move 2 more units to the left.", "8. Start at negative 2, then move 9 units to the right.", "9. Start at 3, move 5 units to the left, then move 2 units to the right.", "10. Start at negative 5, move 3 units to the right, then move 4 units to the left."]
+                            },
+                            {
+                                id: 's4_g_p3', title: "Part 3: Translating into a Number Line", type: 'text',
+                                instruction: "Read each statement carefully. Translate each situation into a number movement. Write down your answer on the space provided below each item.",
+                                questions: ["1. A student gains 8 points and loses 10.", "2. A temperature rises from -3°C to 2°C.", "3. A person earns Php 100 then spends Php 80.", "4. A diver goes down 7 m and goes up 5 m.", "5. A score increases by 6 and decreases by 9."]
+                            }
+                        ]
+                    },
+                    {
+                        title: "Independent Practice", generalInstruction: GEN_INST_INDEP,
+                        parts: [
+                            {
+                                id: 's4_i_p1', title: "Part 1: True or False", type: 'tf',
+                                instruction: "Read each item carefully and determine whether it is true or false. On the space provided before each item, write T if the statement is true, then F if the statement is false.",
+                                questions: ["1. Zero is a positive integer.", "2. -7 is located to the left of 0.", "3. -4 is greater than -9.", "4. Moving from 0 to 5 represents an increase.", "5. Numbers to the right of zero are negative.", "6. The opposite of -3 is 3.", "7. -2 is equal to 2.", "8. Moving left on a number line means decreasing.", "9. -10 is less than -1.", "10. Zero has an opposite integer.", "11. The distance between -3 and 3 is 6 units.", "12. 5 to 2 represents a decrease.", "13. Integers can represent real-life changes.", "14. Positive numbers are always greater than negative numbers.", "15. The number -8 is farther from zero than -2.", "16. 4 and -4 are opposite integers.", "17. -1 is greater than 0.", "18. Moving right increases the value.", "19. All integers are positive numbers.", "20. Zero is less than negative integers."]
+                            },
+                            {
+                                id: 's4_i_p2', title: "Part 2: Identifying Your Position", type: 'text',
+                                instruction: "Imagine moving on a number line. Just think: 'Am I going right (positive) or left (negative)?'. Write your final position (point on the number line) on the space provided before each item number.",
+                                questions: ["1. Start at zero, move 7 units to the right, then move 3 units to the left.", "2. Start at zero, move 6 units to the left, then move 4 units to the right.", "3. Start at 3, then move 5 units to the left.", "4. Start at negative 2, then move 6 units to the right.", "5. Start at 5, then move 9 units to the left.", "6. Start at negative 4, then move 7 units to the right.", "7. Start at zero, move 8 units to the left, then move 2 units to the right.", "8. Start at negative 3, then move 10 units to the right.", "9. Start at 4, then move 6 units to the left, followed by 3 units to the right.", "10. Start at negative 6, then move 2 units to the right, followed by 5 units to the left."]
+                            },
+                            {
+                                id: 's4_i_p3', title: "Part 3: Translating into a Number Line", type: 'text',
+                                instruction: "Read each statement carefully. Translate each situation into a number movement. Write down your answer on the space provided below each item.",
+                                questions: ["1. A player gains 12 points and loses 15.", "2. A temperature drops from 4°C to -2°C.", "3. A person earns Php 300 then spends Php 150.", "4. A diver goes down 10 m and rises 6 m.", "5. A student's score increases by 9 and decreases by 11."]
+                            }
+                        ]
+                    }
+                ]
+            },
+            session5: {
+                title: "Session 5: Understanding Numbers: Fractions as Part of a Whole",
+                practices: [
+                    {
+                        title: "Guided Practice", generalInstruction: GEN_INST_GUIDED,
+                        parts: [
+                            {
+                                id: 's5_g_p1', title: "Part 1: True or False", type: 'tf',
+                                instruction: "Read each item carefully and determine whether it is true or false. On the space provided before each item, write T if the statement is true, then F if the statement is false. Use the hints given on the box below to guide your thinking.",
+                                hints: ["A fraction represents a part of a whole. The whole must be divided into equal parts.", "The numerator tells how many parts are taken.", "The denominator tells how many equal parts the whole is divided into.", "If two fractions represent the same portion, they are called equivalent fractions."],
+                                questions: ["1. A fraction represents a part of a whole.", "2. In the fraction 3/5, the number 3 is the denominator.", "3. In 4/7, the number 7 represents the total number of parts.", "4. A fraction is valid even if the parts are not equal.", "5. 1/2 means one part out of two equal parts.", "6. 1/2 and 2/4 represent the same amount.", "7. The denominator tells how many parts are taken.", "8. 3/6 is equal to 1/3.", "9. If two fractions have the same denominator, the larger numerator gives the larger fraction.", "10. 4/8 is greater than 1/2.", "11. A fraction can be used to describe part of a group.", "12. 5/25 can be simplified to 1/5.", "13. The numerator tells how many parts we are considering.", "14. In 2/3, the whole is divided into three equal parts.", "15. 1/4 is less than 1/2.", "16. 1/4 represents half of 2/8.", "17. 6 is the numerator of the fraction 6/8.", "18. 4/5 and 16/20 are equivalent fractions.", "19. 8/10 is less than 3/4.", "20. The numerator and the denominator can be equal."]
+                            },
+                            {
+                                id: 's5_g_p2', title: "Part 2: Writing Description", type: 'text',
+                                instruction: "On the space provided after each statement, write a short description of what each fraction means as a part of a whole. You may imagine a situation, thing, or any idea that you can associate with the given fraction. Creativity is the key!",
+                                questions: ["1. 1/2", "2. 3/4", "3. 4/10", "4. 1/3", "5. 5/8", "6. 6/12", "7. 7/10", "8. 2/5", "9. 8/9", "10. 9/10"]
+                            },
+                            {
+                                id: 's5_g_p3', title: "Part 3: Fractions in Real-life Applications", type: 'textarea',
+                                instruction: "Read each situation carefully. Identify the fraction being described and answer the question.",
+                                questions: ["1. A group project has 6 equal parts. A member out of 3 completes 2 parts. (Fraction? Is this larger or smaller than the other members? Justify.)", "2. A class completes 3/4 of a task, then continues until it is fully completed. (What fraction was still needed? Explain.)"]
+                            }
+                        ]
+                    },
+                    {
+                        title: "Independent Practice", generalInstruction: GEN_INST_INDEP,
+                        parts: [
+                            {
+                                id: 's5_i_p1', title: "Part 1: True or False", type: 'tf',
+                                instruction: "Read each item carefully and determine whether it is true or false. On the space provided before each item, write T if the statement is true, then F if the statement is false.",
+                                questions: ["1. A fraction represents a part of a whole.", "2. In the fraction 4/6 the number 4 is the denominator.", "3. The denominator tells the total number of parts.", "4. 3/6 is equal to 1/2.", "5. 1/2 is greater than 1/4.", "6. Fractions must have equal parts.", "7. 12/15 is equal to 4/5.", "8. 5/8 is less than 2/8.", "9. 4/13 and 4/7 are similar fractions.", "10. 33/44 can be simplified to 3/4.", "11. In 1/4, the whole is divided into four equal parts.", "12. 9/7 and 7/9 are dissimilar fractions.", "13. 1/5 is greater than 1/3.", "14. 5/20 represents half of 10/20.", "15. 2 is the numerator of the fraction 2/3.", "16. 3/5 and 3/4 are equivalent fractions.", "17. 6/10 is less than 1/6.", "18. The numerator and the denominator can be the same number.", "19. The numerator tells how many parts are taken.", "20. A fraction can be used to describe work completion."]
+                            },
+                            {
+                                id: 's5_i_p2', title: "Part 2: Writing Description", type: 'text',
+                                instruction: "On the space provided after each statement, write a short description of what each fraction means as a part of a whole. You may imagine a situation, thing, or any idea that you can associate with the given fraction. Creativity is the key!",
+                                questions: ["1. 2/3", "2. 1/6", "3. 81/100", "4. 2/4", "5. 1/8", "6. 3/4", "7. 1/10", "8. 11/12", "9. 6/7", "10. 8/12"]
+                            },
+                            {
+                                id: 's5_i_p3', title: "Part 3: Fractions in Real-life Applications", type: 'textarea',
+                                instruction: "Read each situation carefully. Identify the fraction being described and answer the question.",
+                                questions: ["1. A student finishes 3 out of 4 learning sheets. (Fraction? Is it more or less than half? Explain.)", "2. A group project has 8 parts. One member completes 4 parts. (What fraction of work was still needed? Explain.)"]
+                            }
+                        ]
+                    }
+                ]
+            },
+            session6: {
+                title: "Session 6: Understanding Numbers: Decimals and Their Connection to Fractions",
+                practices: [
+                    {
+                        title: "Guided Practice", generalInstruction: GEN_INST_GUIDED,
+                        parts: [
+                            {
+                                id: 's6_g_p1', title: "Part 1: True or False", type: 'tf',
+                                instruction: "Read each item carefully and determine whether it is true or false. On the space provided before each item, write T if the statement is true, then F if the statement is false. Use the hints given on the box below to guide your thinking.",
+                                hints: ["A decimal represents a part of a whole using place value (tenths, hundredths, etc.).", "You can convert a decimal into a fraction by writing it over 10, 100, or 1000 and so on depending on the number of decimal places.", "Decimals and fractions often represent the same value but in different forms."],
+                                questions: ["1. A decimal can represent a part of a whole.", "2. 0.5 is equal to 1/2.", "3. 0.25 is greater than 0.5.", "4. The decimal 0.3 means 3 tenths.", "5. Decimals use place values.", "6. 3/4 is equal to 0.75.", "7. 0.4 is less than 0.6.", "8. 0.10 is greater than 0.2.", "9. A decimal can be written as a fraction.", "10. 0.5 represents five parts out of ten equal parts.", "11. 0.25 represents twenty-five hundredths.", "12. 0.8 is equal to 8/10.", "13. 0.02 represents two hundredths.", "14. 0.6 is equal to 3/5.", "15. 0.75 is less than 0.5.", "16. 2 tenths is greater than 2 thousandths.", "17. 0.3 is equivalent to 3/5.", "18. 18/20 can be written in decimal form 0.9.", "19. 75/100 is equivalent to 0.25.", "20. 2 thousandths can be expressed as 0.0002."]
+                            },
+                            {
+                                id: 's6_g_p2', title: "Part 2: Matching with Decimals", type: 'matching',
+                                instruction: "Read each decimal in Column A and match it with its correct meaning or description in Column B. Write the letter of the correct answer on the space provided before each number.",
+                                choices: [
+                                    { letter: 'a', text: '9 parts out of 10 of a whole' }, { letter: 'b', text: 'Half of a whole' }, { letter: 'c', text: '3 parts out of 10' },
+                                    { letter: 'd', text: 'One-tenth of a whole' }, { letter: 'e', text: '8 parts out of 10' }, { letter: 'f', text: '4 parts out of 10 of a whole' },
+                                    { letter: 'g', text: '6 parts out of 10 of a whole' }, { letter: 'h', text: 'One-fourth of a whole' }, { letter: 'i', text: 'Three-fourths of a whole' },
+                                    { letter: 'j', text: 'Two parts out of 10' }
+                                ],
+                                questions: ["1. 0.5", "2. 0.25", "3. 0.75", "4. 0.4", "5. 0.6", "6. 0.2", "7. 0.8", "8. 0.1", "9. 0.3", "10. 0.9"]
+                            },
+                            {
+                                id: 's6_g_p3', title: "Part 3: Justifying Decimals", type: 'textarea',
+                                instruction: "Read each situation carefully. Convert the decimal and explain your answer briefly.",
+                                questions: ["1. A person walks 0.25 km of a 1 km path. (Fraction? Is it less than half? Justify.)", "2. An applicant scores 0.8 on a summer job interview out of 1.0. (Fraction? What does this say about performance?)"]
+                            }
+                        ]
+                    },
+                    {
+                        title: "Independent Practice", generalInstruction: GEN_INST_INDEP,
+                        parts: [
+                            {
+                                id: 's6_i_p1', title: "Part 1: True or False", type: 'tf',
+                                instruction: "Read each item carefully and determine whether it is true or false. On the space provided before each item, write T if the statement is true, then F if the statement is false.",
+                                questions: ["1. A decimal point separates the whole number from its fractional part.", "2. 0.6 represents six out of ten equal parts.", "3. 0.12 means twelve tenths.", "4. 0.5 is greater than 0.45.", "5. Decimals can be used to represent measurements in real life.", "6. 0.8 is equal to 4/5.", "7. 0.3 is less than 0.27.", "8. 0.01 is greater than 0.002.", "9. 0.01 represents one hundredth of a whole.", "10. 0.90 and 0.9 have the same value.", "11. A decimal with more digits is always greater.", "12. 0.20 is equal to 0.2.", "13. 0.4 is the same as four hundredths.", "14. Decimals can be expressed as fractions with denominators of 10, 100, or 1000.", "15. 0.67 represents sixty-seven hundredths.", "16. 0.1 is smaller than 0.05.", "17. 5/10 can be written as 0.5.", "18. 0.67 is greater than 0.7.", "19. 0.002 represents two thousandths.", "20. Decimals and fractions can represent the same value."]
+                            },
+                            {
+                                id: 's6_i_p2', title: "Part 2: Matching with Decimals", type: 'matching',
+                                instruction: "Read each decimal in Column A and match it with its correct meaning or description in Column B. Write the letter of the correct answer on the space provided before each number.",
+                                choices: [
+                                    { letter: 'a', text: 'One-tenth of a whole' }, { letter: 'b', text: 'Two-tenths of a whole' }, { letter: 'c', text: 'Three-thousandths of a whole' },
+                                    { letter: 'd', text: 'Four-tenths of a whole' }, { letter: 'e', text: 'Six-tenths of a whole' }, { letter: 'f', text: 'Seven-tenths of a whole' },
+                                    { letter: 'g', text: 'Eight-tenths of a whole' }, { letter: 'h', text: 'Nine-tenths of a whole' }, { letter: 'i', text: 'Three-tenths of a whole' },
+                                    { letter: 'j', text: 'Five hundredths of a whole' }
+                                ],
+                                questions: ["1. 0.2", "2. 0.4", "3. 0.6", "4. 0.8", "5. 0.1", "6. 0.3", "7. 0.9", "8. 0.7", "9. 0.05", "10. 0.003"]
+                            },
+                            {
+                                id: 's6_i_p3', title: "Part 3: Justifying Decimals", type: 'textarea',
+                                instruction: "Read each situation carefully. Convert the decimal and explain your answer briefly.",
+                                questions: ["1. A student has completed 0.4 of all assigned tasks for the week. (Fraction? Close to finishing? Justify.)", "2. A learner spent 0.6 of a 1-hour study time focusing on one subject. (Fraction? More or less than half? What does this say?)"]
+                            }
+                        ]
+                    }
+                ]
+            }
+        };
+
+        const TOTAL_QUESTIONS = Object.values(WORKSHEET_DATA).reduce((total, session) => {
+            return total + session.practices.reduce((pracTotal, practice) => {
+                return pracTotal + practice.parts.reduce((partTotal, part) => partTotal + part.questions.length, 0);
+            }, 0);
+        }, 0);
+
+        // ============================================================================
+        // APPLICATION STATE
+        // ============================================================================
+        let state = {
+            appUser: null,
+            authRole: null, // 'student' or 'teacher'
+            studentUsername: '',
+            activeTab: 'session4',
+            answers: {},
+            loading: true,
+            authError: '',
+            saveStatus: { status: 'idle', message: '' },
+            students: [], // For teacher dashboard
+            selectedStudent: null, // For teacher dashboard
+            teacherUnsubscribe: null
+        };
+
+        // ============================================================================
+        // INITIALIZATION
+        // ============================================================================
+        async function init() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (err) {
+                console.error("Auth error:", err);
+                state.authError = "System authentication failed. Please reload.";
+            }
+
+            onAuthStateChanged(auth, (user) => {
+                state.appUser = user;
+                state.loading = false;
+                renderApp();
+            });
+        }
+
+        // ============================================================================
+        // GLOBAL FUNCTIONS (Bound to Window for HTML calls)
+        // ============================================================================
+        
+        window.handleLogin = async (e) => {
+            e.preventDefault();
+            if (!state.appUser) return;
+            
+            const userInp = document.getElementById('usernameInput').value;
+            const passInp = document.getElementById('passwordInput').value;
+            
+            if (!userInp || !passInp) {
+                state.authError = 'Please enter both username and password.';
+                renderApp();
+                return;
+            }
+
+            state.loading = true;
+            state.authError = '';
+            renderApp();
+            
+            if (userInp.toLowerCase().trim() === 'teacher' && passInp === 'teacher123') {
+                state.authRole = 'teacher';
+                state.loading = false;
+                startTeacherListener();
+                renderApp();
+                return;
+            }
+
+            try {
+                const docId = userInp.toLowerCase().trim();
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'learner_progress', docId);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (data.password === passInp) {
+                        state.answers = data.answers || {};
+                        state.studentUsername = docId;
+                        state.authRole = 'student';
+                    } else {
+                        state.authError = 'Incorrect password for this username. Try again.';
+                    }
+                } else {
+                    await setDoc(docRef, { password: passInp, answers: {}, lastUpdated: new Date().toISOString() });
+                    state.answers = {};
+                    state.studentUsername = docId;
+                    state.authRole = 'student';
+                }
+            } catch (err) {
+                state.authError = 'Failed to login. Please try again. ' + err.message;
+            }
+            
+            state.loading = false;
+            renderApp();
+        };
+
+        window.handleSaveProgress = async () => {
+            if (!state.appUser || state.authRole !== 'student' || !state.studentUsername) return;
+            
+            state.saveStatus = { status: 'saving', message: 'Saving your progress...' };
+            renderApp();
+            
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'learner_progress', state.studentUsername);
+                await updateDoc(docRef, { answers: state.answers, lastUpdated: new Date().toISOString() });
+                state.saveStatus = { status: 'success', message: 'Progress saved successfully!' };
+                renderApp();
+                
+                setTimeout(() => {
+                    state.saveStatus = { status: 'idle', message: '' };
+                    renderApp();
+                }, 3000);
+            } catch (err) {
+                state.saveStatus = { status: 'error', message: 'Failed to save. ' + err.message };
+                renderApp();
+                setTimeout(() => {
+                    state.saveStatus = { status: 'idle', message: '' };
+                    renderApp();
+                }, 5000);
+            }
+        };
+
+        window.handleLogout = () => {
+            if (state.teacherUnsubscribe) {
+                state.teacherUnsubscribe();
+                state.teacherUnsubscribe = null;
+            }
+            state.authRole = null;
+            state.studentUsername = '';
+            state.answers = {};
+            state.activeTab = 'session4';
+            state.selectedStudent = null;
+            renderApp();
+        };
+
+        window.setActiveTab = (tabKey) => {
+            state.activeTab = tabKey;
+            renderApp();
+        };
+
+        window.selectStudent = (studentId) => {
+            state.selectedStudent = state.students.find(s => s.id === studentId);
+            renderApp();
+        };
+
+        // Fast state update without full re-render (prevents losing input focus)
+        window.updateAnswerSilent = (qId, value) => {
+            state.answers[qId] = value;
+        };
+
+        // Full re-render for radio buttons (since they don't hold text focus)
+        window.updateAnswerAndRender = (qId, value) => {
+            state.answers[qId] = value;
+            renderApp();
+        };
+
+        function startTeacherListener() {
+            const progressRef = collection(db, 'artifacts', appId, 'public', 'data', 'learner_progress');
+            state.teacherUnsubscribe = onSnapshot(progressRef, (snapshot) => {
+                const studentData = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const ansCount = data.answers ? Object.keys(data.answers).filter(k => data.answers[k].trim() !== '').length : 0;
+                    studentData.push({
+                        id: doc.id,
+                        answers: data.answers || {},
+                        answeredCount: ansCount,
+                        lastUpdated: data.lastUpdated || null
+                    });
+                });
+                state.students = studentData;
+                
+                // Update selected student if they are currently being viewed
+                if (state.selectedStudent) {
+                    state.selectedStudent = studentData.find(s => s.id === state.selectedStudent.id) || null;
+                }
+                
+                if(state.authRole === 'teacher') renderApp();
+            }, (error) => {
+                console.error("Dashboard error:", error);
+            });
+        }
+
+
+        // ============================================================================
+        // RENDERING LOGIC (HTML Strings)
+        // ============================================================================
+        function renderApp() {
+            const root = document.getElementById('app');
+            
+            if (state.loading) {
+                root.innerHTML = `
+                    <div class="min-h-screen flex items-center justify-center bg-blue-50 w-full h-full">
+                        <div class="text-xl font-semibold text-blue-800 animate-pulse flex items-center gap-3">
+                            <i class="fas fa-book-open animate-bounce"></i> Loading System...
+                        </div>
+                    </div>`;
+                return;
+            }
+
+            if (!state.authRole) {
+                root.innerHTML = renderLoginScreen();
+                return;
+            }
+
+            if (state.authRole === 'teacher') {
+                root.innerHTML = renderTeacherDashboard();
+                return;
+            }
+
+            root.innerHTML = renderStudentApp();
+        }
+
+        function renderLoginScreen() {
+            let errorHtml = '';
+            if (state.authError) {
+                errorHtml = `
+                    <div class="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg flex items-start gap-2">
+                        <i class="fas fa-exclamation-circle shrink-0 mt-0.5"></i>
+                        <span>${state.authError}</span>
+                    </div>`;
+            }
+
+            return `
+            <div class="min-h-screen w-full flex items-center justify-center bg-slate-100 px-4">
+                <div class="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden">
+                    <div class="bg-blue-600 p-8 text-center text-white">
+                        <i class="fas fa-book-open text-5xl mx-auto mb-4 opacity-90 block"></i>
+                        <h1 class="text-2xl font-bold mb-2">Remediation Portal</h1>
+                        <p class="text-blue-100 text-sm">Student & Teacher Access</p>
+                    </div>
+                    
+                    <form onsubmit="window.handleLogin(event)" class="p-8">
+                        ${errorHtml}
+                        <div class="space-y-5">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <input type="text" id="usernameInput" required 
+                                        class="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                        placeholder="e.g. juandelacruz" />
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                        <i class="fas fa-lock"></i>
+                                    </div>
+                                    <input type="password" id="passwordInput" required 
+                                        class="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                        placeholder="Enter your PIN/Password" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-8">
+                            <button type="submit" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium shadow-md transition-all hover:shadow-lg active:scale-[0.98]">
+                                Login / Enter <i class="fas fa-chevron-right text-sm"></i>
+                            </button>
+                        </div>
+                        <div class="mt-6 text-xs text-center text-slate-500 border-t pt-4">
+                            <p><strong>Students:</strong> Enter a username and password. If it is new, it will create your account slot instantly.</p>
+                            <p class="mt-2 text-blue-600"><strong>Teachers:</strong> Use teacher account to view progress.</p>
+                        </div>
+                    </form>
+                </div>
+            </div>`;
+        }
+
+        function renderStudentApp() {
+            let bannerHtml = '';
+            if (state.saveStatus.status === 'error') {
+                bannerHtml = `
+                    <div class="bg-red-500 text-white text-sm px-4 py-2 flex items-center justify-center gap-2">
+                        <i class="fas fa-exclamation-circle"></i> ${state.saveStatus.message}
+                    </div>`;
+            }
+
+            let saveBtnClass = 'bg-blue-500 hover:bg-blue-400 text-white shadow-sm';
+            let saveIcon = '<i class="fas fa-save"></i>';
+            let saveText = 'Save Progress';
+
+            if (state.saveStatus.status === 'saving') {
+                saveBtnClass = 'bg-blue-600 text-blue-200 cursor-not-allowed';
+                saveText = 'Saving...';
+            } else if (state.saveStatus.status === 'success') {
+                saveBtnClass = 'bg-green-500 hover:bg-green-600 text-white';
+                saveIcon = '<i class="fas fa-check-circle"></i>';
+                saveText = 'Saved!';
+            }
+
+            const activeData = WORKSHEET_DATA[state.activeTab];
+            let tabsHtml = Object.keys(WORKSHEET_DATA).map(key => {
+                const isActive = state.activeTab === key;
+                const title = WORKSHEET_DATA[key].title.split(':')[0];
+                return `<button onclick="window.setActiveTab('${key}')" class="whitespace-nowrap px-6 py-4 font-medium text-sm transition-colors border-b-2 ${isActive ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}">${title}</button>`;
+            }).join('');
+
+            let practicesHtml = activeData.practices.map((practice, index) => renderPracticeBlock(practice, state.answers, false)).join('');
+
+            return `
+            <!-- Header -->
+            <header class="bg-blue-700 text-white shadow-md sticky top-0 z-50">
+                <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div>
+                        <h1 class="text-xl font-bold flex items-center gap-2">
+                            <i class="fas fa-book-open"></i> Numeracy Remediation Portal
+                        </h1>
+                        <p class="text-blue-200 text-sm mt-1">Student Account: <span class="font-semibold text-white">@${state.studentUsername}</span></p>
+                    </div>
+                    <div class="flex items-center gap-3 w-full sm:w-auto">
+                        <button onclick="window.handleSaveProgress()" ${state.saveStatus.status === 'saving' ? 'disabled' : ''} 
+                            class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${saveBtnClass}">
+                            ${saveIcon} ${saveText}
+                        </button>
+                        <button onclick="window.handleLogout()" class="p-2 text-blue-200 hover:text-white hover:bg-blue-600 rounded-lg transition-colors" title="Logout">
+                            <i class="fas fa-sign-out-alt text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                ${bannerHtml}
+            </header>
+
+            <!-- Tabs -->
+            <div class="bg-white border-b shadow-sm">
+                <div class="max-w-6xl mx-auto px-4 flex overflow-x-auto no-scrollbar">
+                    ${tabsHtml}
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <main class="max-w-4xl mx-auto px-4 py-8 flex-1">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800 border-b pb-4">${activeData.title}</h2>
+                </div>
+                <div class="space-y-12">
+                    ${practicesHtml}
+                </div>
+                
+                <div class="mt-12 p-6 bg-blue-50 border border-blue-100 rounded-xl text-center">
+                    <h3 class="font-semibold text-blue-900 mb-2">Done for now?</h3>
+                    <p class="text-blue-700 text-sm mb-4">Make sure to save your progress before leaving so you can continue later.</p>
+                    <button onclick="window.handleSaveProgress()" class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm transition-colors">
+                        <i class="fas fa-save"></i> Save My Progress
+                    </button>
+                </div>
+            </main>
+            `;
+        }
+
+        function renderTeacherDashboard() {
+            let rosterHtml = '';
+            if (state.students.length === 0) {
+                rosterHtml = `<p class="text-center text-slate-500 p-4 mt-10">No students have saved data yet.</p>`;
+            } else {
+                rosterHtml = state.students.map(student => {
+                    const completionPct = Math.round((student.answeredCount / TOTAL_QUESTIONS) * 100) || 0;
+                    const isSelected = state.selectedStudent && state.selectedStudent.id === student.id;
+                    const badgeClass = completionPct > 80 ? 'bg-green-100 text-green-700' : completionPct > 30 ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-600';
+                    
+                    return `
+                    <button onclick="window.selectStudent('${student.id}')" class="w-full text-left p-4 rounded-lg border transition-all ${isSelected ? 'bg-indigo-50 border-indigo-300 shadow-sm' : 'hover:bg-slate-50 border-slate-200'}">
+                        <div class="font-semibold text-slate-800 break-all">@${student.id}</div>
+                        <div class="flex items-center justify-between mt-2">
+                            <div class="text-xs text-slate-500">Progress: ${student.answeredCount}/${TOTAL_QUESTIONS}</div>
+                            <div class="text-xs font-bold px-2 py-1 rounded-full ${badgeClass}">${completionPct}%</div>
+                        </div>
+                    </button>`;
+                }).join('');
+            }
+
+            let mainAreaHtml = '';
+            if (!state.selectedStudent) {
+                mainAreaHtml = `
+                    <div class="flex-1 flex flex-col items-center justify-center text-slate-400">
+                        <i class="fas fa-users text-6xl mb-4 opacity-20"></i>
+                        <p class="text-lg">Select a student from the roster to review their answers.</p>
+                    </div>`;
+            } else {
+                const completionPct = Math.round((state.selectedStudent.answeredCount / TOTAL_QUESTIONS) * 100) || 0;
+                const lastUpdatedStr = state.selectedStudent.lastUpdated ? new Date(state.selectedStudent.lastUpdated).toLocaleString() : 'N/A';
+                
+                let tabsHtml = Object.keys(WORKSHEET_DATA).map(key => {
+                    const isActive = state.activeTab === key;
+                    const title = WORKSHEET_DATA[key].title.split(':')[0];
+                    return `<button onclick="window.setActiveTab('${key}')" class="whitespace-nowrap px-6 py-4 font-medium text-sm transition-colors border-b-2 ${isActive ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500 hover:text-slate-700'}">${title}</button>`;
+                }).join('');
+
+                const activeData = WORKSHEET_DATA[state.activeTab];
+                let practicesHtml = activeData.practices.map(practice => renderPracticeBlock(practice, state.selectedStudent.answers, true)).join('');
+
+                mainAreaHtml = `
+                    <!-- Review Header -->
+                    <div class="bg-white p-4 border-b shrink-0 flex items-center justify-between shadow-sm">
+                        <div class="flex items-center gap-4">
+                            <button onclick="window.selectStudent(null)" class="md:hidden p-2 bg-slate-100 rounded-lg"><i class="fas fa-arrow-left"></i></button>
+                            <div>
+                                <h2 class="text-xl font-bold text-slate-800">Reviewing: @${state.selectedStudent.id}</h2>
+                                <p class="text-sm text-slate-500">
+                                    Overall Completion: <span class="font-semibold">${completionPct}%</span> • Last saved: ${lastUpdatedStr}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Review Tabs -->
+                    <div class="bg-white border-b shrink-0 px-4 flex overflow-x-auto no-scrollbar">
+                        ${tabsHtml}
+                    </div>
+
+                    <!-- Review Content -->
+                    <div class="flex-1 overflow-y-auto p-4 md:p-8">
+                        <div class="max-w-4xl mx-auto space-y-8">
+                            <h3 class="text-2xl font-bold text-indigo-900 border-b pb-2 mb-6">${activeData.title}</h3>
+                            <div class="space-y-12">
+                                ${practicesHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            return `
+            <div class="min-h-screen flex flex-col w-full h-full">
+                <!-- Teacher Header -->
+                <header class="bg-indigo-800 text-white shadow-md z-50 shrink-0">
+                    <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+                        <h1 class="text-xl font-bold flex items-center gap-2">
+                            <i class="fas fa-chalkboard-teacher"></i> Teacher Control Panel
+                        </h1>
+                        <button onclick="window.handleLogout()" class="flex items-center gap-2 px-4 py-2 bg-indigo-700 hover:bg-indigo-600 rounded-lg transition-colors">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Main Content Split -->
+                <div class="flex-1 flex overflow-hidden">
+                    <!-- Sidebar -->
+                    <div class="w-full md:w-1/3 lg:w-1/4 bg-white border-r flex flex-col ${state.selectedStudent ? 'hidden md:flex' : 'flex'}">
+                        <div class="p-4 bg-slate-50 border-b flex justify-between items-center shrink-0">
+                            <h2 class="font-semibold flex items-center gap-2 text-slate-700"><i class="fas fa-users"></i> Class Roster (${state.students.length})</h2>
+                        </div>
+                        <div class="flex-1 overflow-y-auto p-2 space-y-2">
+                            ${rosterHtml}
+                        </div>
+                    </div>
+
+                    <!-- Main Area -->
+                    <div class="flex-1 flex flex-col bg-slate-50 ${!state.selectedStudent ? 'hidden md:flex' : 'flex'}">
+                        ${mainAreaHtml}
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+
+        function renderPracticeBlock(practice, answersObj, readOnly) {
+            let partsHtml = practice.parts.map(part => renderPartBlock(part, answersObj, readOnly)).join('');
+            
+            return `
+            <div class="mb-4">
+                <h3 class="text-2xl font-bold text-slate-800 mb-4">${practice.title}</h3>
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg mb-6 shadow-sm">
+                    <h4 class="font-semibold text-blue-900 mb-1">General Instruction:</h4>
+                    <p class="text-blue-800 text-sm leading-relaxed">${practice.generalInstruction}</p>
+                </div>
+                <div class="space-y-6">
+                    ${partsHtml}
+                </div>
+            </div>`;
+        }
+
+        function renderPartBlock(part, answersObj, readOnly) {
+            let answeredCount = 0;
+            part.questions.forEach((_, i) => {
+                const val = answersObj[`${part.id}_q${i}`];
+                if (val && val.trim() !== '') answeredCount++;
+            });
+
+            const badgeHtml = readOnly ? `<span class="text-xs px-2 py-1 rounded-full font-medium ${answeredCount === part.questions.length ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">${answeredCount}/${part.questions.length} answered</span>` : '';
+
+            let hintsHtml = '';
+            if (part.hints) {
+                let lis = part.hints.map(h => `<li>${h}</li>`).join('');
+                hintsHtml = `
+                    <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                        <strong class="block mb-2">Hints:</strong>
+                        <ul class="list-disc pl-5 space-y-1">${lis}</ul>
+                    </div>`;
+            }
+
+            let choicesHtml = '';
+            if (part.type === 'matching' && part.choices) {
+                let items = part.choices.map(c => `
+                    <div class="flex gap-3 text-slate-700">
+                        <span class="font-bold text-blue-700 w-5">${c.letter}.</span>
+                        <span>${c.text}</span>
+                    </div>`).join('');
+                choicesHtml = `
+                    <div class="mb-8 p-6 bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
+                        <h4 class="font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2">Column B (Choices)</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">${items}</div>
+                    </div>`;
+            }
+
+            let questionsHtml = part.questions.map((q, index) => {
+                const qId = `${part.id}_q${index}`;
+                const value = answersObj[qId] || '';
+                
+                let inputHtml = '';
+                
+                if (part.type === 'matching') {
+                    // text input handling (silent update to keep focus)
+                    const onInputAttr = readOnly ? '' : `oninput="window.updateAnswerSilent('${qId}', this.value.toLowerCase())"`;
+                    const inputClasses = readOnly ? 'bg-slate-50 text-indigo-900 border-indigo-200' : 'border-slate-300 shadow-sm bg-white';
+                    
+                    inputHtml = `
+                        <div class="flex items-center gap-4">
+                            <input type="text" maxlength="1" value="${value}" ${readOnly ? 'disabled' : ''} ${onInputAttr}
+                                class="w-14 text-center p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold uppercase text-lg ${inputClasses}"
+                                placeholder="${readOnly ? '' : '?'}" />
+                            <p class="font-semibold text-slate-800 text-lg">${q}</p>
+                        </div>`;
+                } else if (part.type === 'tf') {
+                    // radio buttons (triggers full render on change)
+                    const onChangeT = readOnly ? '' : `onchange="window.updateAnswerAndRender('${qId}', 'T')"`;
+                    const onChangeF = readOnly ? '' : `onchange="window.updateAnswerAndRender('${qId}', 'F')"`;
+                    
+                    const labelBaseClass = "flex items-center gap-2 p-3 border rounded-lg transition-all cursor-pointer";
+                    const classT = readOnly ? (value === 'T' ? 'bg-indigo-50 border-indigo-300' : 'opacity-50') : (value === 'T' ? 'bg-blue-50 border-blue-500 shadow-sm' : 'hover:bg-slate-50 border-slate-200');
+                    const classF = readOnly ? (value === 'F' ? 'bg-indigo-50 border-indigo-300' : 'opacity-50') : (value === 'F' ? 'bg-blue-50 border-blue-500 shadow-sm' : 'hover:bg-slate-50 border-slate-200');
+                    
+                    inputHtml = `
+                        <p class="font-medium text-slate-800 mb-3">${q}</p>
+                        <div class="flex gap-4">
+                            <label class="${labelBaseClass} ${classT}">
+                                <input type="radio" name="${qId}" value="T" ${value === 'T' ? 'checked' : ''} ${readOnly ? 'disabled' : ''} ${onChangeT} class="w-4 h-4 text-blue-600" />
+                                <span class="font-semibold text-slate-700">T - True</span>
+                            </label>
+                            <label class="${labelBaseClass} ${classF}">
+                                <input type="radio" name="${qId}" value="F" ${value === 'F' ? 'checked' : ''} ${readOnly ? 'disabled' : ''} ${onChangeF} class="w-4 h-4 text-blue-600" />
+                                <span class="font-semibold text-slate-700">F - False</span>
+                            </label>
+                        </div>`;
+                } else if (part.type === 'textarea') {
+                    const onInputAttr = readOnly ? '' : `oninput="window.updateAnswerSilent('${qId}', this.value)"`;
+                    const inputClasses = readOnly ? 'bg-slate-50 text-indigo-900 border-indigo-200 font-medium' : 'border-slate-300 shadow-sm bg-white';
+                    
+                    inputHtml = `
+                        <p class="font-medium text-slate-800 mb-3">${q}</p>
+                        <textarea rows="3" ${readOnly ? 'disabled' : ''} ${onInputAttr}
+                            class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all ${inputClasses}"
+                            placeholder="${readOnly ? (value ? '' : 'No answer provided') : 'Explain your answer here...'}">${value}</textarea>`;
+                } else {
+                    const onInputAttr = readOnly ? '' : `oninput="window.updateAnswerSilent('${qId}', this.value)"`;
+                    const inputClasses = readOnly ? 'bg-slate-50 text-indigo-900 border-indigo-200 font-medium' : 'border-slate-300 shadow-sm bg-white';
+                    
+                    inputHtml = `
+                        <p class="font-medium text-slate-800 mb-3">${q}</p>
+                        <input type="text" value="${value}" ${readOnly ? 'disabled' : ''} ${onInputAttr}
+                            class="w-full md:w-2/3 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all ${inputClasses}"
+                            placeholder="${readOnly ? (value ? '' : 'No answer provided') : 'Type your answer here...'}" />`;
+                }
+
+                return `<div class="pb-4 border-b border-slate-100 last:border-0 last:pb-0">${inputHtml}</div>`;
+            }).join('');
+
+            // Wrapping the block in a <details> element acting as a native accordion
+            const wrapperClass = readOnly ? 'border-indigo-100' : 'border-slate-200';
+            const headerClass = readOnly ? 'bg-indigo-50/50 hover:bg-indigo-50 border-indigo-100' : 'bg-slate-50 hover:bg-slate-100 border-slate-200';
+            
+            return `
+            <details open class="bg-white rounded-xl shadow-sm border overflow-hidden ${wrapperClass} group mb-6">
+                <summary class="w-full px-6 py-4 border-b flex justify-between items-center transition-colors cursor-pointer outline-none ${headerClass}">
+                    <div class="flex items-center gap-3">
+                        <h3 class="font-semibold text-lg text-slate-800 text-left">${part.title}</h3>
+                        ${badgeHtml}
+                    </div>
+                    <i class="fas fa-chevron-down text-slate-400 transition-transform group-open:rotate-180"></i>
+                </summary>
+                <div class="p-6">
+                    <div class="mb-4 text-slate-700 text-sm">
+                        <strong>Instruction:</strong> ${part.instruction}
+                    </div>
+                    ${hintsHtml}
+                    ${choicesHtml}
+                    <div class="space-y-6">
+                        ${questionsHtml}
+                    </div>
+                </div>
+            </details>`;
+        }
+
+        // Run Init
+        init();
+
+    </script>
+</body>
+</html>
