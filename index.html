@@ -36,11 +36,19 @@
         // ============================================================================
         // FIREBASE INITIALIZATION & CONFIGURATION
         // ============================================================================
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const firebaseConfig = {
+            apiKey: "AIzaSyBEnLSItv-LlaVZhoPaIoIyoK0jbTAGYgE",
+            authDomain: "shssummer2026.firebaseapp.com",
+            projectId: "shssummer2026",
+            storageBucket: "shssummer2026.firebasestorage.app",
+            messagingSenderId: "1974834454",
+            appId: "1:1974834454:web:44d3195deed1db94736c37"
+        };
+        
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'shssummer2026-app';
 
         // ============================================================================
         // COMPLETE WORKSHEET DATA
