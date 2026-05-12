@@ -48,7 +48,6 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'shssummer2026-app';
 
         // ============================================================================
         // COMPLETE WORKSHEET DATA
@@ -285,7 +284,7 @@
 
             try {
                 const docId = userInp.toLowerCase().trim();
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'learner_progress', docId);
+                const docRef = doc(db, 'learner_progress', docId); // Simplified path
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
@@ -318,7 +317,7 @@
             renderApp();
             
             try {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'learner_progress', state.studentUsername);
+                const docRef = doc(db, 'learner_progress', state.studentUsername); // Simplified path
                 await updateDoc(docRef, { answers: state.answers, lastUpdated: new Date().toISOString() });
                 state.saveStatus = { status: 'success', message: 'Progress saved successfully!' };
                 renderApp();
@@ -372,7 +371,7 @@
         };
 
         function startTeacherListener() {
-            const progressRef = collection(db, 'artifacts', appId, 'public', 'data', 'learner_progress');
+            const progressRef = collection(db, 'learner_progress'); // Simplified path
             state.teacherUnsubscribe = onSnapshot(progressRef, (snapshot) => {
                 const studentData = [];
                 snapshot.forEach(doc => {
