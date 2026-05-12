@@ -11,6 +11,9 @@
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
+    <!-- html2pdf for generating PDF reports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
     <style>
         /* Custom Styles for details/summary accordion */
         details > summary { list-style: none; }
@@ -20,6 +23,9 @@
         
         /* Smooth transitions for inputs */
         input, textarea, label { transition: all 0.2s ease-in-out; }
+
+        /* Print Specific Utility */
+        .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans pb-20 min-h-screen flex flex-col">
@@ -397,6 +403,107 @@
             });
         }
 
+        // ============================================================================
+        // PDF EXPORT LOGIC
+        // ============================================================================
+        window.downloadStudentReport = () => {
+            if (!state.selectedStudent) return;
+            
+            const btn = document.getElementById('downloadPdfBtn');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Generating...`;
+            btn.disabled = true;
+
+            // Create temporary container for PDF HTML
+            const container = document.createElement('div');
+            container.innerHTML = generatePrintableHtml(state.selectedStudent);
+            
+            // Hide element offscreen so html2pdf can read it without disrupting the view
+            container.style.position = 'absolute';
+            container.style.left = '-9999px';
+            container.style.top = '0';
+            document.body.appendChild(container);
+
+            const element = container.firstElementChild; 
+
+            // html2pdf configuration
+            const opt = {
+                margin:       0.5,
+                filename:     `${state.selectedStudent.id}_Remediation_Report.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            // Generate and save
+            html2pdf().set(opt).from(element).save().then(() => {
+                document.body.removeChild(container);
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }).catch(err => {
+                console.error('PDF Error:', err);
+                document.body.removeChild(container);
+                btn.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error`;
+                setTimeout(() => { btn.innerHTML = originalHtml; btn.disabled = false; }, 2000);
+            });
+        };
+
+        function generatePrintableHtml(student) {
+            const completionPct = Math.round((student.answeredCount / TOTAL_QUESTIONS) * 100) || 0;
+            const lastUpdated = student.lastUpdated ? new Date(student.lastUpdated).toLocaleString() : 'N/A';
+
+            let html = `
+            <div id="pdf-content" class="p-8 bg-white text-slate-800" style="width: 800px; max-width: 800px; font-family: Arial, sans-serif;">
+                <div class="border-b-4 border-indigo-600 pb-4 mb-6">
+                    <h1 class="text-3xl font-bold text-indigo-800">Numeracy Remediation Report</h1>
+                    <p class="text-lg mt-2"><strong>Student Username:</strong> @${student.id}</p>
+                    <p class="text-sm text-slate-600"><strong>Overall Progress:</strong> ${student.answeredCount}/${TOTAL_QUESTIONS} (${completionPct}%) &nbsp;|&nbsp; <strong>Last Saved:</strong> ${lastUpdated}</p>
+                </div>
+            `;
+
+            Object.keys(WORKSHEET_DATA).forEach(sessionKey => {
+                const session = WORKSHEET_DATA[sessionKey];
+                html += `<div class="mb-8 page-break-inside-avoid">
+                            <h2 class="text-xl font-bold bg-slate-100 p-3 rounded text-slate-800 mb-4 border-l-4 border-slate-600">${session.title}</h2>`;
+
+                session.practices.forEach(practice => {
+                    html += `<div class="mb-6 ml-4">
+                                <h3 class="text-lg font-bold text-indigo-700 mb-3">${practice.title}</h3>`;
+
+                    practice.parts.forEach(part => {
+                        html += `<div class="mb-6">
+                                    <h4 class="text-md font-semibold text-slate-700 mb-2 border-b pb-1">${part.title}</h4>
+                                    <div class="space-y-3 mt-2">`;
+                        
+                        part.questions.forEach((q, i) => {
+                            const qId = `${part.id}_q${i}`;
+                            const rawAns = student.answers[qId];
+                            let ans = rawAns && rawAns.trim() !== '' ? rawAns : '<span class="text-red-500 italic font-normal">No Answer Provided</span>';
+                            
+                            // Format True/False clearly
+                            if(part.type === 'tf' && rawAns) {
+                                ans = rawAns === 'T' ? 'T - True' : (rawAns === 'F' ? 'F - False' : rawAns);
+                            }
+
+                            html += `
+                                <div class="text-sm break-inside-avoid mb-2">
+                                    <div class="font-medium text-slate-800 mb-1">${q}</div>
+                                    <div class="pl-3 border-l-2 border-indigo-400 text-indigo-800 font-bold bg-indigo-50/50 py-1 inline-block pr-4 rounded-r">
+                                        Answer: ${ans}
+                                    </div>
+                                </div>`;
+                        });
+                        html += `</div></div>`;
+                    });
+                    html += `</div>`;
+                });
+                html += `</div>`;
+            });
+
+            html += `</div>`;
+            return html;
+        }
+
 
         // ============================================================================
         // RENDERING LOGIC (HTML Strings)
@@ -610,7 +717,7 @@
 
                 mainAreaHtml = `
                     <!-- Review Header -->
-                    <div class="bg-white p-4 border-b shrink-0 flex items-center justify-between shadow-sm">
+                    <div class="bg-white p-4 border-b shrink-0 flex items-center justify-between shadow-sm flex-wrap gap-4">
                         <div class="flex items-center gap-4">
                             <button onclick="window.selectStudent(null)" class="md:hidden p-2 bg-slate-100 rounded-lg"><i class="fas fa-arrow-left"></i></button>
                             <div>
@@ -620,6 +727,11 @@
                                 </p>
                             </div>
                         </div>
+                        
+                        <!-- NEW: DOWNLOAD PDF BUTTON -->
+                        <button onclick="window.downloadStudentReport()" id="downloadPdfBtn" class="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-sm font-medium">
+                            <i class="fas fa-file-pdf text-lg"></i> <span class="hidden sm:inline">Download PDF</span>
+                        </button>
                     </div>
                     
                     <!-- Review Tabs -->
